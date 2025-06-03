@@ -1,0 +1,98 @@
+version: '3'
+
+services:
+  app:
+    build: .
+    volumes:
+      - ./data:/app/data
+    depends_on:
+      - kafka
+      - spark-master
+    environment:
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - KAFKA_TOPIC=stream-data
+      - ENABLE_SPARK=true
+      - ENABLE_KAFKA=true
+      - ENABLE_SCHEDULER=true
+    ports:
+      - "8501:8501"  # For Streamlit if needed
+    tty: true
+
+  zookeeper:
+    image: wurstmeister/zookeeper
+    ports:
+      - "2181:2181"
+
+  kafka:
+    image: wurstmeister/kafka
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_ADVERTISED_HOST_NAME: kafka
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_CREATE_TOPICS: "stream-data:1:1"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      - zookeeper
+
+  kafka-producer:
+    build: .
+    command: python etl/stream.producer.py
+    depends_on:
+      - kafka
+    environment:
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - KAFKA_TOPIC=stream-data
+
+  kafka-consumer:
+    build: .
+    command: python etl/stream_consumer.py
+    depends_on:
+      - kafka
+      - kafka-producer
+    environment:
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - KAFKA_TOPIC=stream-data
+
+  spark-master:
+    image: bitnami/spark:3.4.0
+    environment:
+      - SPARK_MODE=master
+      - SPARK_RPC_AUTHENTICATION_ENABLED=no
+      - SPARK_RPC_ENCRYPTION_ENABLED=no
+      - SPARK_LOCAL_STORAGE_ENCRYPTION_ENABLED=no
+      - SPARK_SSL_ENABLED=no
+    ports:
+      - "8080:8080"
+      - "7077:7077"
+    volumes:
+      - ./:/opt/spark-apps
+      - ./data:/opt/spark-data
+
+  spark-worker:
+    image: bitnami/spark:3.4.0
+    environment:
+      - SPARK_MODE=worker
+      - SPARK_MASTER_URL=spark://spark-master:7077
+      - SPARK_WORKER_MEMORY=1G
+      - SPARK_WORKER_CORES=1
+      - SPARK_RPC_AUTHENTICATION_ENABLED=no
+      - SPARK_RPC_ENCRYPTION_ENABLED=no
+      - SPARK_LOCAL_STORAGE_ENCRYPTION_ENABLED=no
+      - SPARK_SSL_ENABLED=no
+    depends_on:
+      - spark-master
+    volumes:
+      - ./:/opt/spark-apps
+      - ./data:/opt/spark-data
+
+  scheduler:
+    build: .
+    command: python etl/scheduler.py
+    depends_on:
+      - app
+    environment:
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - KAFKA_TOPIC=stream-data
+      - ENABLE_SPARK=true

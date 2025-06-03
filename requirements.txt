@@ -1,0 +1,10 @@
+ccxt
+pandas
+matplotlib
+rich
+kafka-python
+python-dotenv
+pyspark==3.4.0
+findspark
+schedule
+logging

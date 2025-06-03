@@ -1,0 +1,70 @@
+# Langkah-langkah Menjalankan Proyek dengan Docker
+
+## 1. Prasyarat
+- Docker dan Docker Compose terinstal
+- Port 9092 (Kafka), 8080 (Spark UI), dan 2181 (Zookeeper) tidak digunakan
+
+## 2. Menjalankan Semua Layanan
+# Dari direktori root proyek
+docker-compose up -d
+
+## 3. Memeriksa Status Layanan
+# Melihat semua container yang berjalan
+docker-compose ps
+
+# Memeriksa log aplikasi utama
+docker-compose logs -f app
+
+# Memeriksa log Kafka producer
+docker-compose logs -f kafka-producer
+
+# Memeriksa log Kafka consumer
+docker-compose logs -f kafka-consumer
+
+# Memeriksa log scheduler
+docker-compose logs -f scheduler
+
+## 4. Mengakses Spark UI
+# Buka browser dan akses:
+http://localhost:8080
+
+## 5. Menjalankan Job Spark Secara Manual (Opsional)
+# Dari direktori root proyek
+chmod +x spark_submit.sh
+./spark_submit.sh
+
+## 6. Memeriksa Output Data
+# Melihat data di database SQLite
+docker-compose exec app sqlite3 /app/data/market_data.db "SELECT * FROM market_data LIMIT 10;"
+
+# Melihat file CSV yang dihasilkan
+docker-compose exec app ls -la /app/data/
+
+## 7. Menghentikan Semua Layanan
+# Dari direktori root proyek
+docker-compose down
+
+## 8. Troubleshooting
+# Jika Kafka error
+docker-compose restart kafka
+
+# Jika Spark tidak berjalan
+docker-compose logs spark-master
+
+# Jika container tidak berjalan
+docker-compose restart
+
+# Untuk masalah koneksi
+docker network ls
+docker network inspect project-rdv_default
+
+## 9. Membersihkan Volume dan Image (Opsional)
+# Hapus semua volume
+docker-compose down -v
+
+# Hapus semua image yang tidak digunakan
+docker image prune -a
+
+## 10. Membangun Ulang Image (Jika Ada Perubahan Kode)
+docker-compose build --no-cache
+docker-compose up -d
