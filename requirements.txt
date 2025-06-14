@@ -1,10 +1,42 @@
+# Data processing
+pandas==2.0.3
+numpy==1.24.4
+scipy==1.10.1
+scikit-learn==1.3.0
+
+# Database
+psycopg2-binary==2.9.6
+pymysql==1.1.0
+
+# Kafka
+kafka-python==2.0.2
+confluent-kafka==2.1.1
+
+# Spark
+pyspark==3.3.2
+findspark==2.0.1
+py4j==0.10.9.5
+
+# Visualization
+matplotlib==3.7.2
+seaborn==0.12.2
+plotly==5.15.0
+dash==2.11.1
+
+# Utilities
+python-dotenv==1.0.0
+requests==2.31.0
+pyarrow==12.0.1
+fastavro==1.7.3
+avro==1.11.1
+
+# Testing
+pytest==7.4.0
+pytest-mock==3.11.1
+
+# Logging
+loguru==0.7.0
+# MongoDB requirements
+pymongo==4.3.3
+
 ccxt
-pandas
-matplotlib
-rich
-kafka-python
-python-dotenv
-pyspark==3.4.0
-findspark
-schedule
-logging

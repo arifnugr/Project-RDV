@@ -1,14 +1,40 @@
-import sqlite3
 import os
 import asyncio
+from pymongo import MongoClient
+import sqlite3
 
 class Loader:
-    def __init__(self, db_path='data/market_data.db'):
-        os.makedirs(os.path.dirname(db_path), exist_ok=True)
-        self.conn = sqlite3.connect(db_path)
-        self._create_table()
+    def __init__(self, db_path=None, use_mongodb=True):
+        # Gunakan path absolut ke direktori root proyek
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        project_dir = os.path.dirname(current_dir)
+        
+        # MongoDB connection
+        self.use_mongodb = use_mongodb
+        if self.use_mongodb:
+            try:
+                # Gunakan nama host 'mongodb' untuk Docker atau 'localhost' untuk development
+                mongo_host = os.environ.get('MONGODB_HOST', 'mongodb')
+                self.mongo_client = MongoClient(f"mongodb://{mongo_host}:27017/")
+                self.db = self.mongo_client["market_data"]
+                self.collection = self.db["market_data"]
+                print(f"[Loader] Connected to MongoDB at {mongo_host}")
+            except Exception as e:
+                print(f"[Loader Error] Failed to connect to MongoDB: {e}")
+                print("[Loader] Falling back to SQLite")
+                self.use_mongodb = False
+        
+        # SQLite fallback
+        if not self.use_mongodb:
+            if db_path is None:
+                db_path = os.path.join(project_dir, 'data', 'market_data.db')
+            
+            os.makedirs(os.path.dirname(db_path), exist_ok=True)
+            self.conn = sqlite3.connect(db_path)
+            self._create_sqlite_table()
+            print(f"[Loader] Using SQLite at {db_path}")
 
-    def _create_table(self):
+    def _create_sqlite_table(self):
         cursor = self.conn.cursor()
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS market_data (
@@ -32,6 +58,27 @@ class Loader:
         self.conn.commit()
 
     def insert(self, data: dict):
+        if self.use_mongodb:
+            try:
+                # Insert into MongoDB
+                self.collection.insert_one(data)
+            except Exception as e:
+                print(f"[Loader Error] MongoDB insert failed: {e}")
+                # Fallback to SQLite if MongoDB fails
+                if not hasattr(self, 'conn'):
+                    current_dir = os.path.dirname(os.path.abspath(__file__))
+                    project_dir = os.path.dirname(current_dir)
+                    db_path = os.path.join(project_dir, 'data', 'market_data.db')
+                    os.makedirs(os.path.dirname(db_path), exist_ok=True)
+                    self.conn = sqlite3.connect(db_path)
+                    self._create_sqlite_table()
+                
+                self._insert_sqlite(data)
+        else:
+            # Use SQLite directly
+            self._insert_sqlite(data)
+
+    def _insert_sqlite(self, data: dict):
         cursor = self.conn.cursor()
         cursor.execute('''
             INSERT INTO market_data (
@@ -79,4 +126,7 @@ class Loader:
                 on_success(data.get("timestamp", "-"))
 
     def close(self):
-        self.conn.close()
+        if self.use_mongodb:
+            self.mongo_client.close()
+        else:
+            self.conn.close()

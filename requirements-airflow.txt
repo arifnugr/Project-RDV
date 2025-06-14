@@ -1,0 +1,31 @@
+# Airflow core
+apache-airflow==2.6.3
+apache-airflow-providers-apache-spark==4.0.0
+apache-airflow-providers-apache-kafka==1.0.0
+apache-airflow-providers-postgres==5.6.0
+apache-airflow-providers-sqlite==3.4.3
+apache-airflow-providers-http==4.5.0
+apache-airflow-providers-common-sql==1.7.1
+
+# Database
+psycopg2-binary==2.9.6
+
+# Kafka integration
+kafka-python==2.0.2
+confluent-kafka==2.1.1
+
+# Spark integration
+pyspark==3.3.2
+findspark==2.0.1
+
+# Visualization
+matplotlib==3.7.2
+seaborn==0.12.2
+plotly==5.15.0
+kaleido==0.2.1
+
+# Utilities
+python-dotenv==1.0.0
+pendulum==2.1.2
+tenacity==8.2.2
+attrs==23.1.0

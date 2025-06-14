@@ -1,0 +1,3 @@
+# Analisis Hubungan Harga dan Volume Perdagangan Bitcoin
+
+Grafik ini menunjukkan hubungan antara harga rata-rata (garis biru) dan volume perdagangan (batang oranye) Bitcoin dalam interval satu menit. Anotasi menunjukkan titik-titik penting: harga tertinggi, harga terendah, dan volume tertinggi. Hubungan antara harga dan volume memberikan wawasan tentang kekuatan tren pasar. Volume tinggi yang mengikuti pergerakan harga mengkonfirmasi kekuatan tren tersebut, sementara divergensi antara harga dan volume dapat mengindikasikan potensi pembalikan arah. Analisis ini membantu trader mengidentifikasi momentum pasar dan membuat keputusan trading yang lebih terinformasi.

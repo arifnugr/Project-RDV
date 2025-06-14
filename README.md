@@ -1,114 +1,91 @@
-# Project-RDV
+# Data Engineering Project with Kafka, Spark, and Airflow
 
-Proyek Rekayasa Data dan Visualisasi untuk analisis data pasar cryptocurrency.
+This project sets up a complete data engineering pipeline using Apache Kafka for streaming, Apache Spark for data processing, and Apache Airflow for workflow orchestration.
 
-## Struktur Proyek
+## Prerequisites
+
+- Docker and Docker Compose installed on Windows
+- Git (optional)
+
+## Project Structure
 
 ```
 Project-RDV/
-├── data/                  # Data SQLite dan CSV
-├── etl/                   # Kode ETL pipeline
-│   ├── extractor.py       # Ekstraksi data dari Binance
-│   ├── transformer.py     # Transformasi data
-│   ├── loader.py          # Loading data ke SQLite
-│   ├── main.py            # Main pipeline sederhana
-│   ├── main_spark.py      # Main pipeline dengan integrasi semua komponen
-│   ├── spark_integration.py # Modul integrasi dengan Apache Spark
-│   ├── scheduler.py       # Scheduler untuk tugas periodik
-│   ├── stream.producer.py # Kafka producer
-│   ├── stream_consumer.py # Kafka consumer
-│   ├── visualizer.py      # Visualisasi data
-│   └── ...
-├── Dockerfile             # Konfigurasi Docker untuk aplikasi
-├── docker-compose.yml     # Orkestrasi multi-container dengan semua komponen
-├── requirements.txt       # Dependensi Python
-├── spark_processor.py     # Aplikasi Spark untuk processing data
-├── spark_submit.sh        # Script untuk submit job Spark
-└── run_all.bat            # Script untuk menjalankan semua komponen
+├── dags/                  # Airflow DAG files
+├── data/                  # Data files
+├── etl/                   # ETL scripts
+├── docker-compose.yml     # Docker Compose configuration
+├── airflow.Dockerfile     # Airflow custom Dockerfile
+├── spark.Dockerfile       # Spark custom Dockerfile
+├── requirements.txt       # Python dependencies
+├── requirements-airflow.txt # Airflow-specific dependencies
+└── .env                   # Environment variables
 ```
 
-## Menjalankan dengan Docker
+## Getting Started
 
-### Prasyarat
+1. Clone or download this repository
 
-- Docker dan Docker Compose terinstall
-- Koneksi internet untuk mengunduh image Docker
+2. Start the Docker containers:
+   ```
+   docker-compose up -d
+   ```
 
-### Menjalankan Semua Komponen
+3. Access the services:
+   - Kafka UI: http://localhost:8080
+   - Spark Master UI: http://localhost:8090
+   - Airflow UI: http://localhost:8081 (username: airflow, password: airflow)
 
-Untuk menjalankan aplikasi dengan semua komponen (ETL, Kafka, Spark, Scheduler):
+4. To stop the containers:
+   ```
+   docker-compose down
+   ```
 
-1. Jalankan script `run_all.bat` atau eksekusi:
+## Services
 
-```bash
-docker-compose up -d
-```
+### Apache Kafka
 
-2. Untuk melihat log aplikasi utama:
-
-```bash
-docker-compose logs -f app
-```
-
-3. Untuk melihat log Kafka producer:
-
-```bash
-docker-compose logs -f kafka-producer
-```
-
-4. Untuk melihat log Kafka consumer:
-
-```bash
-docker-compose logs -f kafka-consumer
-```
-
-5. Untuk melihat log scheduler:
-
-```bash
-docker-compose logs -f scheduler
-```
-
-6. Akses Spark UI di browser:
-
-```
-http://localhost:8080
-```
-
-7. Untuk menghentikan semua container:
-
-```bash
-docker-compose down
-```
-
-## Komponen Utama
-
-### ETL Pipeline
-
-Pipeline ETL mengekstrak data dari Binance API, melakukan transformasi, dan menyimpannya ke database SQLite.
-
-### Kafka Streaming
-
-Komponen streaming menggunakan Kafka untuk mengirim data secara real-time dari producer ke consumer:
-- Producer: Mengekstrak data dari Binance dan mengirimkannya ke topic Kafka
-- Consumer: Menerima data dari topic Kafka, melakukan transformasi, dan menyimpannya ke database
+- Kafka Broker: localhost:29092 (from host), kafka:9092 (from containers)
+- Zookeeper: localhost:2181
+- Kafka UI: http://localhost:8080
 
 ### Apache Spark
 
-Spark digunakan untuk pemrosesan data besar dengan kemampuan:
-- Windowing analysis
-- Aggregations
-- Batch dan stream processing
+- Spark Master: spark://localhost:7077
+- Spark Master UI: http://localhost:8090
+- Spark Worker
 
-### Scheduler
+### Apache Airflow
 
-Scheduler menjalankan tugas-tugas terjadwal seperti:
-- Export data ke CSV
-- Menjalankan batch processing Spark
-- Tugas-tugas pemeliharaan lainnya
+- Airflow Webserver: http://localhost:8081
+- Default login: username: airflow, password: airflow
+
+## Running the Pipeline
+
+1. Start the services using Docker Compose
+2. Access the Airflow UI and enable the DAGs
+3. Monitor the execution through the Airflow UI
 
 ## Troubleshooting
 
-- Jika visualisasi tidak muncul, pastikan X11 forwarding dikonfigurasi dengan benar
-- Jika Kafka error, cek koneksi ke Zookeeper dengan `docker-compose logs zookeeper`
-- Untuk masalah Spark, periksa log di Spark UI (http://localhost:8080)
-- Jika container tidak berjalan, coba restart dengan `docker-compose restart`
+- If containers fail to start, check Docker logs:
+  ```
+  docker-compose logs [service_name]
+  ```
+
+- To restart a specific service:
+  ```
+  docker-compose restart [service_name]
+  ```
+
+- To rebuild a service:
+  ```
+  docker-compose build --no-cache [service_name]
+  docker-compose up -d [service_name]
+  ```
+
+## Notes for Windows Users
+
+- Docker Desktop for Windows must be installed and running
+- WSL2 backend is recommended for better performance
+- File paths in Docker volumes use forward slashes even on Windows
