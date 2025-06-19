@@ -35,6 +35,8 @@ Project-RDV/
    - Kafka UI: http://localhost:8080
    - Spark Master UI: http://localhost:8090
    - Airflow UI: http://localhost:8081 (username: airflow, password: airflow)
+   - MongoDB UI: http://localhost:8082
+   - Dashboard UI: http://localhost:8501
 
 4. To stop the containers:
    ```
