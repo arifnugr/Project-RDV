@@ -15,7 +15,7 @@ set MONGODB_PORT=27017
 set MONGODB_DATABASE=market_data
 
 REM Start the services
-docker-compose up -d
+docker-compose up -d zookeeper kafka kafka-ui mongodb mongo-express spark-master spark-worker postgres airflow-webserver airflow-scheduler airflow-init kafka-producer kafka-consumer dashboard
 
 echo.
 echo Services are starting up. Please wait...
