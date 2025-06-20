@@ -26,7 +26,8 @@ echo Access the services at:
 echo - Kafka UI: http://localhost:8080
 echo - Spark Master UI: http://localhost:8090
 echo - Airflow UI: http://localhost:8081 (username: airflow, password: airflow)
-echo - MongoDB: localhost:27017
+echo - MongoDB UI: http://localhost:8082
+echo - Dashboard UI: http://localhost:8501
 echo.
 echo To stop the services, run: docker-compose down
 echo.
