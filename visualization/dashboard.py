@@ -1,104 +1,76 @@
 import streamlit as st
-from pymongo import MongoClient
 from datetime import datetime
-import os
+import pandas as pd
 
-# Konfigurasi MongoDB
-mongo_host = os.environ.get('MONGODB_HOST', 'mongodb')
-mongo_port = os.environ.get('MONGODB_PORT', '27017')
-mongo_db = os.environ.get('MONGODB_DATABASE', 'market_data')
-
-def get_visualization_from_db(viz_name):
-    try:
-        client = MongoClient(f"mongodb://{mongo_host}:{mongo_port}/")
-        db = client[mongo_db]
-        viz_collection = db["visualizations"]
-        
-        # Ambil visualisasi terbaru
-        viz = viz_collection.find_one({"name": viz_name}, sort=[("timestamp", -1)])
-        
-        if viz and "html_content" in viz:
-            return viz["html_content"]
-        return None
-    except Exception as e:
-        st.error(f"Error mengambil visualisasi {viz_name}: {e}")
-        return None
+# import fungsi dari crypto_analysis.py
+from crypto_analysis import (
+    get_data_from_db,
+    prepare_data,
+    plot_price_over_time,
+    plot_volume_analysis,
+    plot_volume_price_comparison
+)
 
 def main():
-    st.set_page_config(page_title="Dashboard Bitcoin", page_icon="📊", layout="wide")
+    st.set_page_config(page_title="Dashboard Bitcoin", layout="wide")
     st.title("📊 Dashboard Analisis Pasar Bitcoin")
-    
-    # Sidebar
-    st.sidebar.title("Navigasi")
-    
-    # Tombol refresh
-    if st.sidebar.button('Refresh Data'):
-        st.cache_data.clear()
-        st.experimental_rerun()
-    
-    # Tampilkan visualisasi
-    st.header("Visualisasi Stream Data")
-    
-    # Tren Harga
-    st.subheader("Tren Harga Bitcoin")
-    price_viz = get_visualization_from_db("price_trends")
-    if price_viz:
-        st.components.v1.html(price_viz, height=500)
-    else:
-        st.warning("Visualisasi tren harga tidak tersedia")
-    
-    st.markdown("""
-    **Analisis Tren Harga:**
-    
-    Grafik ini menunjukkan pergerakan harga Bitcoin dalam interval satu menit berdasarkan data stream. Area bayangan menunjukkan rentang antara harga minimum dan maksimum, memberikan gambaran tentang volatilitas jangka pendek. Visualisasi ini memungkinkan kita mengidentifikasi volatilitas dan tren pergerakan harga secara real-time.
-    """)
-    
-    # Volume Perdagangan
-    st.subheader("Volume Perdagangan Bitcoin")
-    volume_viz = get_visualization_from_db("volume_analysis")
-    if volume_viz:
-        st.components.v1.html(volume_viz, height=500)
-    else:
-        st.warning("Visualisasi volume perdagangan tidak tersedia")
-    
-    st.markdown("""
-    **Analisis Volume Perdagangan:**
-    
-    Grafik batang ini menunjukkan volume perdagangan Bitcoin dalam interval satu menit dari data stream. Warna gradien membantu mengidentifikasi periode dengan volume perdagangan tinggi dan rendah. Volume perdagangan real-time ini memberikan indikasi likuiditas dan minat pasar dalam jangka pendek.
-    """)
-    
-    # Perbandingan Harga dan Volume
-    st.subheader("Hubungan Harga dan Volume Perdagangan")
-    price_volume_viz = get_visualization_from_db("price_volume_comparison")
-    if price_volume_viz:
-        st.components.v1.html(price_volume_viz, height=500)
-    else:
-        st.warning("Visualisasi hubungan harga dan volume tidak tersedia")
-    
-    st.markdown("""
-    **Analisis Hubungan Harga dan Volume:**
-    
-    Grafik ini menunjukkan hubungan antara harga rata-rata dan volume perdagangan Bitcoin dari data stream. Anotasi menunjukkan titik-titik penting dalam data. Analisis hubungan ini membantu trader mengidentifikasi momentum pasar dan membuat keputusan trading yang lebih terinformasi dalam jangka pendek.
-    """)
-    
-    # Market Impact
-    st.subheader("Market Impact Bitcoin")
-    impact_viz = get_visualization_from_db("market_impact")
-    if impact_viz:
-        st.components.v1.html(impact_viz, height=500)
-    else:
-        st.warning("Visualisasi market impact tidak tersedia")
-    
-    st.markdown("""
-    **Analisis Market Impact:**
-    
-    Market impact mengukur seberapa besar pengaruh transaksi terhadap pergerakan harga pasar. Nilai yang lebih tinggi menunjukkan bahwa transaksi memiliki pengaruh yang lebih besar terhadap harga, sementara nilai yang lebih rendah menunjukkan pasar yang lebih likuid dan efisien. Analisis ini penting untuk trader yang perlu memahami bagaimana order mereka dapat mempengaruhi pasar.
-    """)
-    
+
+    # 1. Load & prepare data
+    df_raw = get_data_from_db()
+    df = prepare_data(df_raw)
+    if df is None:
+        st.error("Gagal memuat data dari MongoDB")
+        return
+
+    # 2. Sidebar: pilih rentang tanggal
+    min_date = df['timestamp'].dt.date.min()
+    max_date = df['timestamp'].dt.date.max()
+    start_date, end_date = st.sidebar.date_input(
+        "Pilih Rentang Tanggal",
+        [min_date, max_date],
+        min_value=min_date,
+        max_value=max_date
+    )
+    mask = (df['timestamp'].dt.date >= start_date) & (df['timestamp'].dt.date <= end_date)
+    df_sel = df.loc[mask]
+
+    # 3. Tren Harga dengan range slider & selector
+    st.subheader("🎯 Tren Harga Bitcoin")
+    fig_price = plot_price_over_time(df_sel)
+    fig_price.update_layout(
+        xaxis=dict(
+            rangeselector=dict(
+                buttons=list([
+                    dict(count=1, label="1d", step="day", stepmode="backward"),
+                    dict(count=7, label="1w", step="day", stepmode="backward"),
+                    dict(count=1, label="1m", step="month", stepmode="backward"),
+                    dict(step="all")
+                ])
+            ),
+            rangeslider=dict(visible=True)
+        )
+    )
+    st.plotly_chart(fig_price, use_container_width=True)
+
+    # 4. Volume Perdagangan
+    st.subheader("📊 Volume Perdagangan Bitcoin")
+    fig_vol = plot_volume_analysis(df_sel)
+    fig_vol.update_layout(
+        xaxis=dict(rangeslider=dict(visible=True))
+    )
+    st.plotly_chart(fig_vol, use_container_width=True)
+
+    # 5. Perbandingan Harga & Volume
+    st.subheader("🔄 Hubungan Harga & Volume Perdagangan")
+    fig_pv = plot_volume_price_comparison(df_sel)
+    fig_pv.update_layout(
+        xaxis=dict(rangeslider=dict(visible=True))
+    )
+    st.plotly_chart(fig_pv, use_container_width=True)
+
     # Footer
     st.sidebar.markdown("---")
-    st.sidebar.markdown("© 2025 Kelompok Rekayasa Data dan Visualisasi")
-    st.sidebar.info(f"Pembaruan terakhir: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    st.sidebar.markdown(f"Pembaruan terakhir: {datetime.now():%Y-%m-%d %H:%M:%S}")
 
 if __name__ == "__main__":
     main()

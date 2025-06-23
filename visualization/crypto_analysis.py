@@ -5,7 +5,6 @@ import seaborn as sns
 import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
-import sqlite3
 import os
 import sys
 
@@ -41,31 +40,9 @@ def get_data_from_db():
         print(f"Error saat terhubung ke MongoDB: {e}")
         return None
 
-# Fungsi untuk mendapatkan data dari CSV (fallback)
-def get_data_from_csv():
-    csv_path = os.path.join(project_dir, 'data', 'market_data.csv')
-    
-    if not os.path.exists(csv_path):
-        print(f"File CSV tidak ditemukan di {csv_path}")
-        return None
-    
-    try:
-        df = pd.read_csv(csv_path)
-        
-        # Konversi timestamp ke datetime
-        df['timestamp'] = pd.to_datetime(df['timestamp'])
-        
-        return df
-    except Exception as e:
-        print(f"Error saat membaca CSV: {e}")
-        return None
-
-# Fungsi untuk mendapatkan data (mencoba DB dulu, lalu CSV)
+# Fungsi untuk mendapatkan data
 def get_data():
-    df = get_data_from_db()
-    if df is None:
-        df = get_data_from_csv()
-    return df
+    get_data_from_db()
 
 # Fungsi untuk membersihkan dan mempersiapkan data
 def prepare_data(df):
@@ -92,19 +69,54 @@ def prepare_data(df):
     return df
 
 # Fungsi untuk visualisasi harga Bitcoin terhadap waktu
-def plot_price_over_time(df):
+def plot_price_over_time(df, date_filter=None):
     if df is None:
         return None
     
-    fig = px.line(df, x='timestamp', y='last_price', 
-                  title='Harga Bitcoin (BTC/USDT) Terhadap Waktu',
+    # Filter data berdasarkan tanggal jika diberikan
+    if date_filter:
+        df_filtered = df[df['timestamp'].dt.date == date_filter].copy()
+    else:
+        df_filtered = df.copy()
+    
+    if df_filtered.empty:
+        print(f"Tidak ada data untuk tanggal {date_filter}")
+        return None
+    
+    # Hitung range harga untuk menyesuaikan sumbu Y
+    price_range = df_filtered['last_price'].max() - df_filtered['last_price'].min()
+    price_min = df_filtered['last_price'].min() - (price_range * 0.01)
+    price_max = df_filtered['last_price'].max() + (price_range * 0.01)
+    
+    fig = px.line(df_filtered, x='timestamp', y='last_price', 
+                  title=f'Tren Harga Bitcoin (BTC/USDT) - {date_filter if date_filter else "Semua Data"}',
                   labels={'last_price': 'Harga (USDT)', 'timestamp': 'Waktu'},
-                  template='plotly_white')
+                  template='plotly_dark')
+    
+    # Perbarui styling untuk membuat tren lebih jelas
+    fig.update_traces(
+        line=dict(color='#1f77b4', width=3),
+        hovertemplate='<b>Waktu:</b> %{x}<br><b>Harga:</b> $%{y:,.2f}<extra></extra>'
+    )
     
     fig.update_layout(
         xaxis_title='Waktu',
         yaxis_title='Harga (USDT)',
-        hovermode='x unified'
+        hovermode='x unified',
+        plot_bgcolor='rgba(17, 17, 17, 1)',
+        paper_bgcolor='rgba(17, 17, 17, 1)',
+        font=dict(color='white', size=12),
+        title_font_size=16,
+        yaxis=dict(
+            range=[price_min, price_max],
+            gridcolor='rgba(128, 128, 128, 0.2)',
+            zeroline=False
+        ),
+        xaxis=dict(
+            gridcolor='rgba(128, 128, 128, 0.2)',
+            zeroline=False
+        ),
+        margin=dict(l=60, r=60, t=60, b=60)
     )
     
     return fig
@@ -117,7 +129,7 @@ def plot_volume_analysis(df):
     fig = px.bar(df, x='timestamp', y='volume_24h', 
                  title='Volume Perdagangan Bitcoin dalam 24 Jam',
                  labels={'volume_24h': 'Volume (USDT)', 'timestamp': 'Waktu'},
-                 template='plotly_white')
+                 template='plotly_dark')
     
     fig.update_layout(
         xaxis_title='Waktu',
@@ -154,11 +166,17 @@ def plot_bid_ask_comparison(df):
     
     fig.update_layout(
         title_text='Perbandingan Bid Price dan Ask Price dengan Spread',
-        hovermode='x unified'
+        hovermode='x unified',
+        template='plotly_dark'
     )
     
     fig.update_xaxes(title_text='Waktu')
-    fig.update_yaxes(title_text='Harga (USDT)', secondary_y=False)
+    # Menyesuaikan sumbu y utama (harga)
+    if not df.empty:
+        min_price = min(df['bid_price'].min(), df['ask_price'].min())
+        max_price = max(df['bid_price'].max(), df['ask_price'].max())
+        fig.update_yaxes(title_text='Harga (USDT)', secondary_y=False, range=[min_price * 0.995, max_price * 1.005])
+    
     fig.update_yaxes(title_text='Spread (USDT)', secondary_y=True)
     
     return fig
@@ -171,7 +189,7 @@ def plot_price_change_distribution(df):
     fig = px.histogram(df, x='price_change_pct', 
                        title='Distribusi Perubahan Harga Bitcoin (%)',
                        labels={'price_change_pct': 'Perubahan Harga (%)'},
-                       template='plotly_white',
+                       template='plotly_dark',
                        marginal='box')
     
     fig.update_layout(
@@ -194,7 +212,7 @@ def plot_trend_analysis(df):
                  title='Distribusi Tren Pasar Bitcoin',
                  color='Trend',
                  color_discrete_map={'bullish': 'green', 'bearish': 'red', 'unknown': 'gray'},
-                 template='plotly_white')
+                 template='plotly_dark')
     
     fig.update_traces(textposition='inside', textinfo='percent+label')
     
@@ -210,7 +228,7 @@ def plot_hourly_pattern(df):
     fig = px.line(hourly_avg, x='hour', y='last_price', 
                   title='Pola Harga Bitcoin Berdasarkan Jam',
                   labels={'last_price': 'Rata-rata Harga (USDT)', 'hour': 'Jam'},
-                  template='plotly_white',
+                  template='plotly_dark',
                   markers=True)
     
     fig.update_layout(
@@ -219,6 +237,12 @@ def plot_hourly_pattern(df):
         hovermode='x unified',
         xaxis=dict(tickmode='linear', tick0=0, dtick=1)
     )
+
+    # Menyesuaikan sumbu y agar lebih fokus pada rentang harga
+    if not hourly_avg.empty:
+        min_price = hourly_avg['last_price'].min()
+        max_price = hourly_avg['last_price'].max()
+        fig.update_yaxes(range=[min_price * 0.995, max_price * 1.005])
     
     return fig
 
@@ -239,7 +263,7 @@ def plot_correlation_heatmap(df):
     fig = px.imshow(corr, text_auto=True, aspect='auto',
                     title='Korelasi Antar Variabel Pasar Bitcoin',
                     color_continuous_scale='RdBu_r',
-                    template='plotly_white')
+                    template='plotly_dark')
     
     fig.update_layout(
         height=700,
@@ -260,7 +284,7 @@ def plot_volatility_analysis(df):
     fig = px.line(daily_volatility, x='date', y='volatility', 
                   title='Volatilitas Harian Bitcoin',
                   labels={'volatility': 'Volatilitas (%)', 'date': 'Tanggal'},
-                  template='plotly_white')
+                  template='plotly_dark')
     
     fig.update_layout(
         xaxis_title='Tanggal',
@@ -291,92 +315,20 @@ def plot_volume_price_comparison(df):
     
     fig.update_layout(
         title_text='Perbandingan Harga dan Volume Perdagangan Bitcoin',
-        hovermode='x unified'
+        hovermode='x unified',
+        template='plotly_dark'
     )
     
     fig.update_xaxes(title_text='Waktu')
-    fig.update_yaxes(title_text='Harga (USDT)', secondary_y=False)
+    # Menyesuaikan sumbu y utama (harga)
+    if not df.empty:
+        min_price = df['last_price'].min()
+        max_price = df['last_price'].max()
+        fig.update_yaxes(title_text='Harga (USDT)', secondary_y=False, range=[min_price * 0.995, max_price * 1.005])
+
     fig.update_yaxes(title_text='Volume (USDT)', secondary_y=True)
     
     return fig
-
-# # Fungsi untuk menyimpan semua visualisasi
-# def save_all_visualizations(df=None):
-#     if df is None:
-#         df = get_data()
-#         df = prepare_data(df)
-    
-#     if df is None:
-#         print("Tidak dapat memuat data. Pastikan database tersedia.")
-#         return
-    
-#     # Buat direktori untuk menyimpan visualisasi jika belum ada
-#     viz_dir = os.path.join(current_dir, 'plots')
-#     try:
-#         if not os.path.exists(viz_dir):
-#             os.makedirs(viz_dir)
-#     except Exception as e:
-#         print(f"Warning: Could not create plots directory: {e}")
-#         # Lanjutkan meskipun tidak bisa membuat direktori
-    
-#     # Buat dan simpan visualisasi yang penting saja
-#     key_visualizations = {
-#         'price_over_time': plot_price_over_time(df),
-#         'volume_analysis': plot_volume_analysis(df),
-#         'bid_ask_comparison': plot_bid_ask_comparison(df),
-#         'trend_analysis': plot_trend_analysis(df),
-#         'volatility_analysis': plot_volatility_analysis(df),
-#         'volume_price_comparison': plot_volume_price_comparison(df)
-#     }
-    
-#     # Simpan visualisasi dengan deskripsi analisis
-#     for name, fig in key_visualizations.items():
-#         if fig is not None:
-#             try:
-#                 fig.write_html(os.path.join(viz_dir, f'{name}.html'))
-#                 fig.write_image(os.path.join(viz_dir, f'{name}.png'))
-                
-#                 # Tambahkan deskripsi untuk setiap visualisasi
-#                 with open(os.path.join(viz_dir, f'{name}_analysis.md'), 'w') as f:
-#                     if name == 'price_over_time':
-#                         f.write("# Analisis Harga Bitcoin Terhadap Waktu\n\n")
-#                         f.write("Grafik ini menunjukkan pergerakan harga Bitcoin selama periode pengamatan. ")
-#                         f.write("Volatilitas tinggi terlihat dari fluktuasi harga yang signifikan dalam waktu singkat. ")
-#                         f.write("Pola tren naik (bullish) dan turun (bearish) dapat diidentifikasi, ")
-#                         f.write("serta level support dan resistance yang menjadi acuan pergerakan harga.\n")
-#                     elif name == 'volume_analysis':
-#                         f.write("# Analisis Volume Perdagangan Bitcoin\n\n")
-#                         f.write("Volume perdagangan menunjukkan likuiditas dan minat pasar terhadap Bitcoin. ")
-#                         f.write("Volume tinggi yang mengikuti pergerakan harga mengkonfirmasi kekuatan tren tersebut. ")
-#                         f.write("Penurunan volume pada tren yang sedang berlangsung dapat menjadi sinyal awal pembalikan arah. ")
-#                         f.write("Volume perdagangan yang tinggi juga menunjukkan likuiditas pasar yang baik.\n")
-#                     elif name == 'bid_ask_comparison':
-#                         f.write("# Analisis Bid-Ask Spread Bitcoin\n\n")
-#                         f.write("Bid-ask spread adalah selisih antara harga tertinggi yang bersedia dibayar pembeli (bid) ")
-#                         f.write("dan harga terendah yang bersedia diterima penjual (ask). ")
-#                         f.write("Spread yang kecil menunjukkan likuiditas tinggi, sementara spread yang besar menunjukkan likuiditas rendah. ")
-#                         f.write("Peningkatan spread sering terjadi selama periode volatilitas tinggi atau ketidakpastian pasar.\n")
-#                     elif name == 'trend_analysis':
-#                         f.write("# Analisis Tren Pasar Bitcoin\n\n")
-#                         f.write("Grafik ini menunjukkan distribusi tren bullish (naik) dan bearish (turun) selama periode pengamatan. ")
-#                         f.write("Dominasi tren tertentu mencerminkan sentimen pasar secara keseluruhan. ")
-#                         f.write("Memahami tren pasar membantu investor menyelaraskan strategi dengan arah pergerakan harga yang dominan.\n")
-#                     elif name == 'volatility_analysis':
-#                         f.write("# Analisis Volatilitas Bitcoin\n\n")
-#                         f.write("Volatilitas menunjukkan seberapa besar dan cepat harga Bitcoin berfluktuasi. ")
-#                         f.write("Volatilitas cenderung mengelompok, dengan periode volatilitas tinggi diikuti oleh periode volatilitas tinggi lainnya. ")
-#                         f.write("Lonjakan volatilitas sering bertepatan dengan peristiwa pasar signifikan. ")
-#                         f.write("Volatilitas yang lebih tinggi menunjukkan risiko yang lebih tinggi, tetapi juga potensi keuntungan yang lebih tinggi.\n")
-#                     elif name == 'volume_price_comparison':
-#                         f.write("# Analisis Hubungan Harga dan Volume Bitcoin\n\n")
-#                         f.write("Grafik ini menunjukkan hubungan antara harga dan volume perdagangan Bitcoin. ")
-#                         f.write("Lonjakan volume perdagangan sering bersamaan dengan pergerakan harga yang signifikan. ")
-#                         f.write("Perubahan harga yang didukung oleh volume tinggi cenderung lebih berkelanjutan. ")
-#                         f.write("Hubungan ini membantu mengidentifikasi kekuatan tren dan potensi pembalikan arah.\n")
-#             except Exception as e:
-#                 print(f"Warning: Could not save visualization {name}: {e}")
-    
-#     print(f"Visualisasi telah disimpan di {viz_dir}")
 
 # Fungsi untuk membuat visualisasi dari data stream
 def save_stream_visualizations(df):
@@ -389,51 +341,48 @@ def save_stream_visualizations(df):
     os.makedirs(viz_dir, exist_ok=True)
     
     try:
-        # Visualisasi 1: Tren harga rata-rata dengan area shading
+        # Visualisasi 1: Tren harga per menit dengan 3 garis berwarna
         if 'avg_price' in df.columns:
             fig_price = go.Figure()
-            
-            # Tambahkan garis untuk harga rata-rata
+            # Rata‐rata Harga (biru)
             fig_price.add_trace(
                 go.Scatter(
-                    x=df['window_start'], 
-                    y=df['avg_price'], 
+                    x=df['window_start'],
+                    y=df['avg_price'],
                     name='Rata-rata Harga',
-                    line=dict(color='rgb(31, 119, 180)', width=2)
+                    mode='lines',
+                    line=dict(color='blue', width=2)
                 )
             )
-            
-            # Tambahkan area untuk range harga (min-max)
-            if 'max_price' in df.columns and 'min_price' in df.columns:
-                fig_price.add_trace(
-                    go.Scatter(
-                        x=df['window_start'],
-                        y=df['max_price'],
-                        fill=None,
-                        mode='lines',
-                        line_color='rgba(31, 119, 180, 0.1)',
-                        name='Harga Maksimum'
-                    )
+            # Harga Maksimum (hijau)
+            fig_price.add_trace(
+                go.Scatter(
+                    x=df['window_start'],
+                    y=df['max_price'],
+                    name='Harga Maksimum',
+                    mode='lines',
+                    line=dict(color='green', width=2)
                 )
-                
-                fig_price.add_trace(
-                    go.Scatter(
-                        x=df['window_start'],
-                        y=df['min_price'],
-                        fill='tonexty',
-                        mode='lines',
-                        line_color='rgba(31, 119, 180, 0.1)',
-                        name='Harga Minimum'
-                    )
+            )
+            # Harga Minimum (merah)
+            fig_price.add_trace(
+                go.Scatter(
+                    x=df['window_start'],
+                    y=df['min_price'],
+                    name='Harga Minimum',
+                    mode='lines',
+                    line=dict(color='red', width=2)
                 )
-            
+            )
             fig_price.update_layout(
                 title='Tren Harga Bitcoin per Menit',
                 xaxis_title='Waktu',
                 yaxis_title='Harga (USDT)',
                 hovermode='x unified',
                 legend_title='Metrik',
-                template='plotly_white',
+                template='plotly_dark',
+                plot_bgcolor='black',
+                paper_bgcolor='black',
                 height=500
             )
             
@@ -453,15 +402,15 @@ def save_stream_visualizations(df):
             
             print("Berhasil menyimpan visualisasi tren harga")
         
-        # Visualisasi 2: Volume perdagangan dengan gradient color
+        # Visualisasi 2: Volume perdagangan dengan latar hitam
         if 'avg_volume' in df.columns:
             fig_volume = px.bar(
-                df, 
-                x='window_start', 
+                df,
+                x='window_start',
                 y='avg_volume',
                 title='Volume Perdagangan Rata-rata per Menit',
                 labels={'avg_volume': 'Volume (USDT)', 'window_start': 'Waktu'},
-                template='plotly_white',
+                template='plotly_dark',
                 color='avg_volume',
                 color_continuous_scale='Viridis'
             )
@@ -471,7 +420,9 @@ def save_stream_visualizations(df):
                 yaxis_title='Volume (USDT)',
                 hovermode='x unified',
                 height=500,
-                coloraxis_showscale=False
+                coloraxis_showscale=False,
+                plot_bgcolor='black',
+                paper_bgcolor='black'
             )
             
             # Simpan visualisasi
@@ -490,7 +441,7 @@ def save_stream_visualizations(df):
             
             print("Berhasil menyimpan visualisasi volume")
         
-        # Visualisasi 3: Perbandingan harga dan volume dengan annotations
+        # Visualisasi 3: Perbandingan harga dan volume dengan background hitam
         if 'avg_price' in df.columns and 'avg_volume' in df.columns:
             fig_price_volume = make_subplots(specs=[[{"secondary_y": True}]])
             
@@ -554,7 +505,9 @@ def save_stream_visualizations(df):
             fig_price_volume.update_layout(
                 title_text='Perbandingan Harga dan Volume Perdagangan Bitcoin',
                 hovermode='x unified',
-                template='plotly_white',
+                template='plotly_dark',
+                plot_bgcolor='black',
+                paper_bgcolor='black',
                 height=500,
                 legend=dict(
                     orientation="h",
@@ -586,28 +539,25 @@ def save_stream_visualizations(df):
             
             print("Berhasil menyimpan visualisasi perbandingan harga-volume")
         
-        # Visualisasi 4: Market Impact Analysis
+        # Visualisasi 4: Market Impact dengan background hitam
         if 'avg_market_impact' in df.columns:
             fig_impact = px.line(
-                df, 
-                x='window_start', 
+                df,
+                x='window_start',
                 y='avg_market_impact',
                 title='Analisis Market Impact Bitcoin',
                 labels={'avg_market_impact': 'Market Impact', 'window_start': 'Waktu'},
-                template='plotly_white',
+                template='plotly_dark',
                 markers=True
-            )
-            
-            fig_impact.update_traces(
-                line=dict(width=2),
-                marker=dict(size=8)
             )
             
             fig_impact.update_layout(
                 xaxis_title='Waktu',
                 yaxis_title='Market Impact',
                 hovermode='x unified',
-                height=500
+                height=500,
+                plot_bgcolor='black',
+                paper_bgcolor='black'
             )
             
             # Simpan visualisasi
@@ -635,4 +585,4 @@ def save_stream_visualizations(df):
 
 
 if __name__ == "__main__":
-    save_all_visualizations()
+    save_stream_visualizations()

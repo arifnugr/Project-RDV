@@ -20,11 +20,6 @@ RUN apt-get update && apt-get install -y \
     wget \
     && rm -rf /var/lib/apt/lists/*
 
-# Download SQLite JDBC driver directly
-RUN mkdir -p /opt/bitnami/spark/jars/ && \
-    wget -q -O /opt/bitnami/spark/jars/sqlite-jdbc-3.34.0.jar \
-    https://repo1.maven.org/maven2/org/xerial/sqlite-jdbc/3.34.0/sqlite-jdbc-3.34.0.jar
-
 # Copy requirements file
 COPY requirements.txt /tmp/requirements.txt
 

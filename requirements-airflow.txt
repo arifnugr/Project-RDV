@@ -1,11 +1,14 @@
 # Airflow core
-apache-airflow==2.6.3
+#apache-airflow==2.6.3
 apache-airflow-providers-apache-spark==4.0.0
 apache-airflow-providers-apache-kafka==1.0.0
 apache-airflow-providers-postgres==5.6.0
 apache-airflow-providers-sqlite==3.4.3
 apache-airflow-providers-http==4.5.0
 apache-airflow-providers-common-sql==1.7.1
+
+# Missing dependencies
+pymongo==4.5.0
 
 # Database
 psycopg2-binary==2.9.6
